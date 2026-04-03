@@ -19,7 +19,7 @@ services:
       - key: APP_BASE_URL
         sync: false
       - key: PYTHON_VERSION
-        value: "3.11.0"
+        value: "3.11.9"
     healthCheckPath: /
 
 databases:
