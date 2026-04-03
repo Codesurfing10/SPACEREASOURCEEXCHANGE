@@ -127,30 +127,51 @@ The tests use an isolated SQLite database (`test_space.db`) which is cleaned up 
 
 ## Deploying to Render
 
-### One-Click Deploy
+The repository includes a **Render Blueprint** (`render.yaml`) that provisions a Python web service and a managed PostgreSQL database in one click.
 
-1. Fork this repository to your GitHub account
-2. Go to [Render Dashboard](https://dashboard.render.com/)
-3. Click **New → Blueprint**
-4. Connect your forked repository
-5. Render will read `render.yaml` and provision:
-   - A Python web service
-   - A managed PostgreSQL database (free tier)
+### Blueprint Deploy (recommended)
 
-### Manual Deploy
+1. **Fork** this repository to your GitHub account.
+2. Go to the [Render Dashboard](https://dashboard.render.com/) and click **New → Blueprint**.
+3. Connect your GitHub account and select your forked repository.
+4. Render detects `render.yaml` and proposes two resources:
+   - **`space-resource-exchange`** — Python web service
+   - **`space-resource-exchange-db`** — Managed PostgreSQL (free tier)
+5. Click **Apply**. Render will:
+   - Install Python dependencies (`pip install -r requirements.txt`)
+   - Run database migrations automatically via `preDeployCommand: alembic upgrade head`
+   - Start the app with `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+6. After the first successful deploy, set the **required secrets** in the web service's **Environment** tab (see table below).
+7. Open the service URL shown in the dashboard — your live app is ready. 🚀
 
-1. **Create a PostgreSQL database** on Render (free tier available)
+### Required environment variables
+
+| Variable | Where to get it | Notes |
+|----------|-----------------|-------|
+| `DATABASE_URL` | Set automatically by Render from the linked database | Do **not** set manually when using Blueprint |
+| `STRIPE_SECRET_KEY` | [Stripe Dashboard → API keys](https://dashboard.stripe.com/apikeys) | Use `sk_test_…` for testing, `sk_live_…` for production |
+| `STRIPE_PUBLISHABLE_KEY` | Stripe Dashboard → API keys | Use `pk_test_…` / `pk_live_…` accordingly |
+| `STRIPE_WEBHOOK_SECRET` | [Stripe Dashboard → Webhooks](https://dashboard.stripe.com/webhooks) | Create a webhook pointing to `https://<your-service>.onrender.com/api/payments/webhook` |
+| `APP_BASE_URL` | Your Render service URL | e.g. `https://space-resource-exchange.onrender.com` — used for Stripe redirect URLs |
+| `PYTHON_VERSION` | — | Pre-set to `3.11.0` in `render.yaml`; change if needed |
+
+> **Stripe optional**: leaving all three Stripe variables empty disables Stripe checkout. The platform still works with internal credits and crypto-wallet payment methods.
+
+### Manual deploy (without Blueprint)
+
+1. **Create a PostgreSQL database** on Render (free tier available).
 2. **Create a Web Service**:
-   - Environment: Python
+   - Environment: **Python**
    - Build Command: `pip install -r requirements.txt`
-   - Start Command: `alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+   - Pre-Deploy Command: `alembic upgrade head`
+   - Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+   - Health Check Path: `/`
 3. **Set environment variables** in the Render dashboard:
-   - `DATABASE_URL` (from the Render database "Internal Database URL")
-   - `STRIPE_SECRET_KEY` (from your Stripe dashboard)
-   - `STRIPE_PUBLISHABLE_KEY`
-   - `APP_BASE_URL` (your Render service URL, e.g. `https://space-resource-exchange.onrender.com`)
+   - `DATABASE_URL` — copy the *Internal Database URL* from the Render PostgreSQL instance
+   - `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` (optional)
+   - `APP_BASE_URL` — your Render web service URL
 
-### Docker Deploy
+### Docker deploy (local/self-hosted)
 
 ```bash
 docker build -t space-resource-exchange .
