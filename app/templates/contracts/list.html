@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Browse Contracts — Space Resource Exchange{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title">Browse Contracts</h1>
+  <a href="/contracts/new" class="btn btn-primary">+ New Contract</a>
+</div>
+
+<!-- Filters -->
+<form method="get" action="/contracts" class="filters-bar">
+  <select name="resource_type_id" class="filter-select">
+    <option value="">All Resources</option>
+    {% for rt in resource_types %}
+    <option value="{{ rt.id }}" {% if selected_resource_type_id == rt.id %}selected{% endif %}>
+      {{ rt.name }}
+    </option>
+    {% endfor %}
+  </select>
+
+  <select name="contract_kind" class="filter-select">
+    <option value="">All Types</option>
+    {% for kind in contract_kinds %}
+    <option value="{{ kind.value }}" {% if selected_kind == kind.value %}selected{% endif %}>
+      {{ kind.value }}
+    </option>
+    {% endfor %}
+  </select>
+
+  <select name="status" class="filter-select">
+    <option value="">All Statuses</option>
+    {% for st in contract_statuses %}
+    <option value="{{ st.value }}" {% if selected_status == st.value %}selected{% endif %}>
+      {{ st.value }}
+    </option>
+    {% endfor %}
+  </select>
+
+  <button type="submit" class="btn btn-secondary">Filter</button>
+  <a href="/contracts" class="btn btn-ghost">Clear</a>
+</form>
+
+<p class="results-count">{{ contracts|length }} contract{{ 's' if contracts|length != 1 }}</p>
+
+{% if contracts %}
+<div class="contracts-grid">
+  {% for c in contracts %}
+  <a href="/contracts/{{ c.id }}" class="contract-card">
+    <div class="contract-card-header">
+      <span class="badge badge-{{ c.contract_kind.lower() }}">{{ c.contract_kind }}</span>
+      <span class="badge badge-status-{{ c.status.lower() }}">{{ c.status }}</span>
+    </div>
+    <h3 class="contract-card-title">{{ c.title }}</h3>
+    {% if c.description %}
+    <p class="contract-card-desc">{{ c.description[:120] }}{% if c.description|length > 120 %}…{% endif %}</p>
+    {% endif %}
+    <div class="contract-card-meta">
+      <span class="meta-item">
+        <span class="meta-icon">⚗️</span>
+        {{ c.resource_type.name if c.resource_type else "Unknown" }}
+      </span>
+      <span class="meta-item">
+        <span class="meta-icon">📦</span>
+        {{ c.quantity }} {{ c.unit }}
+      </span>
+      {% if c.delivery_location %}
+      <span class="meta-item">
+        <span class="meta-icon">📍</span>
+        {{ c.delivery_location }}
+      </span>
+      {% endif %}
+    </div>
+    {% if c.contract_kind.value == 'OPTION' %}
+    <div class="option-info">
+      <span class="option-tag">{{ c.option_type }} Option</span>
+      {% if c.strike_price %}<span>Strike: {{ c.strike_price }} {{ c.pricing_currency }}</span>{% endif %}
+      {% if c.premium %}<span>Premium: {{ c.premium }} {{ c.pricing_currency }}</span>{% endif %}
+    </div>
+    {% endif %}
+    <div class="contract-card-footer">
+      <span class="contract-card-price">{{ c.price_amount }} {{ c.pricing_currency }}</span>
+      <span class="contract-card-seller">{{ c.seller_display_name }}</span>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">🌌</div>
+  <h3>No contracts found</h3>
+  <p>The cosmos awaits. Be the first to list a resource contract.</p>
+  <a href="/contracts/new" class="btn btn-primary">Create First Contract</a>
+</div>
+{% endif %}
+{% endblock %}

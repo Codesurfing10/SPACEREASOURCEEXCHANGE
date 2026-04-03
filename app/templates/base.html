@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}Space Resource Exchange{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/main.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Exo+2:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+</head>
+<body>
+  <!-- Starfield Canvas -->
+  <canvas id="starfield"></canvas>
+
+  <!-- Nav -->
+  <nav class="navbar">
+    <div class="nav-inner">
+      <a href="/" class="nav-logo">
+        <span class="logo-icon">🚀</span>
+        <span class="logo-text">SRX</span>
+        <span class="logo-sub">Space Resource Exchange</span>
+      </a>
+      <div class="nav-links">
+        <a href="/contracts" class="nav-link">Browse Contracts</a>
+        <a href="/contracts/new" class="btn btn-primary btn-sm">+ New Contract</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <main class="main-content">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <p class="footer-text">
+        🛸 Space Resource Exchange — MVP&nbsp;&nbsp;|&nbsp;&nbsp;
+        <span class="neon-text">Enabling the interplanetary economy</span>
+      </p>
+    </div>
+  </footer>
+
+  <script src="/static/js/main.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+{% block title %}{{ contract.title }} — Space Resource Exchange{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="/contracts">← Browse Contracts</a>
+</div>
+
+{% if errors %}
+<div class="alert alert-error">
+  {% for e in errors %}<p>{{ e }}</p>{% endfor %}
+</div>
+{% endif %}
+
+<div class="detail-layout">
+  <!-- Left: Contract Details -->
+  <div class="detail-main">
+    <div class="detail-header">
+      <div class="detail-badges">
+        <span class="badge badge-{{ contract.contract_kind.lower() }} badge-lg">{{ contract.contract_kind }}</span>
+        <span class="badge badge-status-{{ contract.status.lower() }} badge-lg">{{ contract.status }}</span>
+      </div>
+      <h1 class="detail-title">{{ contract.title }}</h1>
+      <p class="detail-seller">Listed by <strong>{{ contract.seller_display_name }}</strong></p>
+    </div>
+
+    {% if contract.description %}
+    <div class="detail-section">
+      <h2 class="detail-section-title">Description</h2>
+      <p class="detail-desc">{{ contract.description }}</p>
+    </div>
+    {% endif %}
+
+    <div class="detail-section">
+      <h2 class="detail-section-title">Contract Details</h2>
+      <div class="detail-grid">
+        <div class="detail-item">
+          <span class="detail-label">Resource</span>
+          <span class="detail-value">{{ contract.resource_type.name if contract.resource_type else "—" }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Contract Type</span>
+          <span class="detail-value">{{ contract.contract_kind }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Quantity</span>
+          <span class="detail-value">{{ contract.quantity }} {{ contract.unit }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Price</span>
+          <span class="detail-value neon-text">{{ contract.price_amount }} {{ contract.pricing_currency }}</span>
+        </div>
+        {% if contract.delivery_location %}
+        <div class="detail-item">
+          <span class="detail-label">Delivery Location</span>
+          <span class="detail-value">{{ contract.delivery_location }}</span>
+        </div>
+        {% endif %}
+        {% if contract.delivery_window_start %}
+        <div class="detail-item">
+          <span class="detail-label">Delivery Window</span>
+          <span class="detail-value">
+            {{ contract.delivery_window_start.strftime('%Y-%m-%d') }}
+            {% if contract.delivery_window_end %} – {{ contract.delivery_window_end.strftime('%Y-%m-%d') }}{% endif %}
+          </span>
+        </div>
+        {% endif %}
+        <div class="detail-item">
+          <span class="detail-label">Created</span>
+          <span class="detail-value">{{ contract.created_at.strftime('%Y-%m-%d %H:%M UTC') }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Option Contract Fields -->
+    {% if contract.contract_kind.value == 'OPTION' %}
+    <div class="detail-section">
+      <h2 class="detail-section-title">Option Details</h2>
+      <div class="detail-grid">
+        {% if contract.option_type %}
+        <div class="detail-item">
+          <span class="detail-label">Option Type</span>
+          <span class="detail-value neon-text">{{ contract.option_type }} Option</span>
+        </div>
+        {% endif %}
+        {% if contract.strike_price %}
+        <div class="detail-item">
+          <span class="detail-label">Strike Price</span>
+          <span class="detail-value">{{ contract.strike_price }} {{ contract.pricing_currency }}</span>
+        </div>
+        {% endif %}
+        {% if contract.premium %}
+        <div class="detail-item">
+          <span class="detail-label">Premium</span>
+          <span class="detail-value">{{ contract.premium }} {{ contract.pricing_currency }}</span>
+        </div>
+        {% endif %}
+        {% if contract.expiration_at %}
+        <div class="detail-item">
+          <span class="detail-label">Expiration</span>
+          <span class="detail-value">{{ contract.expiration_at.strftime('%Y-%m-%d') }}</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Smart Contract Fields -->
+    {% if contract.contract_kind.value == 'SMART' %}
+    <div class="detail-section">
+      <h2 class="detail-section-title">Smart Contract Metadata</h2>
+      <div class="detail-grid">
+        {% if contract.chain %}
+        <div class="detail-item">
+          <span class="detail-label">Chain</span>
+          <span class="detail-value">{{ contract.chain }}</span>
+        </div>
+        {% endif %}
+        {% if contract.contract_address %}
+        <div class="detail-item">
+          <span class="detail-label">Contract Address</span>
+          <span class="detail-value code-text">{{ contract.contract_address }}</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Payment Preferences -->
+    {% if contract.payment_preferences %}
+    <div class="detail-section">
+      <h2 class="detail-section-title">Payment Methods</h2>
+      <div class="payment-list">
+        {% for pp in contract.payment_preferences %}
+        <div class="payment-item">
+          <span class="payment-method badge-{{ pp.method.lower() }}">{{ pp.method }}</span>
+          {% if pp.details %}
+            {% if pp.details.wallet_address %}
+            <span class="payment-detail code-text">{{ pp.details.wallet_address }}</span>
+            {% elif pp.details.credits_handle %}
+            <span class="payment-detail">Credits: {{ pp.details.credits_handle }}</span>
+            {% endif %}
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% if stripe_pk %}
+      <div class="stripe-section">
+        <button id="stripe-pay-btn" class="btn btn-primary btn-stripe" data-contract-id="{{ contract.id }}">
+          💳 Pay with Stripe
+        </button>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Seller Controls -->
+    {% if contract.status.value in ['OPEN', 'DRAFT', 'ACCEPTED'] %}
+    <div class="detail-section">
+      <h2 class="detail-section-title">Manage Contract</h2>
+      <div class="action-row">
+        {% if contract.status.value not in ['CLOSED', 'CANCELLED'] %}
+        <form method="post" action="/contracts/{{ contract.id }}/close">
+          <button type="submit" class="btn btn-secondary">Mark as Closed</button>
+        </form>
+        <form method="post" action="/contracts/{{ contract.id }}/cancel">
+          <button type="submit" class="btn btn-danger">Cancel Contract</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Right: Offers Panel -->
+  <div class="detail-sidebar">
+    <!-- Make Offer -->
+    {% if contract.status.value == 'OPEN' %}
+    <div class="sidebar-card">
+      <h2 class="sidebar-title">Make an Offer</h2>
+      <form method="post" action="/contracts/{{ contract.id }}/offers" class="offer-form">
+        <div class="form-group">
+          <label class="form-label">Your Display Name</label>
+          <input type="text" name="bidder_display_name" class="form-input" required
+                 placeholder="e.g. LunarMining Corp"/>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Offer Amount</label>
+            <input type="number" name="offer_amount" class="form-input" step="0.000001"
+                   min="0.000001" required placeholder="0.00"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Currency</label>
+            <select name="offer_currency" class="form-select">
+              <option value="USD">USD</option>
+              <option value="CREDITS">CREDITS</option>
+              <option value="USDC">USDC</option>
+              <option value="ETH">ETH</option>
+              <option value="BTC">BTC</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Message (optional)</label>
+          <textarea name="message" class="form-textarea" rows="3"
+                    placeholder="Terms, delivery notes…"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full">Submit Offer</button>
+      </form>
+    </div>
+    {% endif %}
+
+    <!-- Offers List -->
+    <div class="sidebar-card">
+      <h2 class="sidebar-title">Offers ({{ offers|length }})</h2>
+      {% if offers %}
+      <div class="offers-list">
+        {% for offer in offers %}
+        <div class="offer-item offer-status-{{ offer.status.lower() }}">
+          <div class="offer-header">
+            <span class="offer-bidder">{{ offer.bidder_display_name }}</span>
+            <span class="badge badge-offer-{{ offer.status.lower() }}">{{ offer.status }}</span>
+          </div>
+          <div class="offer-amount neon-text">{{ offer.offer_amount }} {{ offer.offer_currency }}</div>
+          {% if offer.message %}
+          <p class="offer-message">{{ offer.message }}</p>
+          {% endif %}
+          <div class="offer-date">{{ offer.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+          {% if offer.status.value == 'PENDING' and contract.status.value == 'OPEN' %}
+          <form method="post" action="/contracts/{{ contract.id }}/accept-offer/{{ offer.id }}">
+            <button type="submit" class="btn btn-success btn-sm btn-full">✓ Accept Offer</button>
+          </form>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="no-offers">No offers yet. Be the first!</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if stripe_pk %}
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+  const stripeBtn = document.getElementById('stripe-pay-btn');
+  if (stripeBtn) {
+    stripeBtn.addEventListener('click', async () => {
+      const contractId = stripeBtn.dataset.contractId;
+      stripeBtn.disabled = true;
+      stripeBtn.textContent = 'Creating session…';
+      try {
+        const resp = await fetch(`/api/payments/${contractId}/stripe-session`, {method: 'POST'});
+        if (!resp.ok) {
+          const err = await resp.json();
+          alert('Stripe error: ' + (err.detail || 'unknown'));
+          stripeBtn.disabled = false;
+          stripeBtn.textContent = '💳 Pay with Stripe';
+          return;
+        }
+        const data = await resp.json();
+        window.location.href = data.checkout_url;
+      } catch(e) {
+        alert('Failed to create Stripe session: ' + e.message);
+        stripeBtn.disabled = false;
+        stripeBtn.textContent = '💳 Pay with Stripe';
+      }
+    });
+  }
+</script>
+{% endif %}
+{% endblock %}

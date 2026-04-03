@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% block title %}New Contract — Space Resource Exchange{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="/contracts">← Browse Contracts</a>
+</div>
+
+<div class="form-page">
+  <h1 class="page-title">Create a Contract</h1>
+  <p class="page-subtitle">List your space resource for trade on the interplanetary market.</p>
+
+  {% if errors %}
+  <div class="alert alert-error">
+    {% for e in errors %}<p>{{ e }}</p>{% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="post" action="/contracts/new" class="contract-form" id="contract-form">
+
+    <!-- ── Section: Basic Info ── -->
+    <div class="form-section">
+      <h2 class="form-section-title">Basic Information</h2>
+
+      <div class="form-group">
+        <label class="form-label" for="title">Contract Title <span class="req">*</span></label>
+        <input type="text" id="title" name="title" class="form-input" required
+               placeholder="e.g. 500 kg Lunar Ice — Shackleton Crater Delivery"/>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="description">Description</label>
+        <textarea id="description" name="description" class="form-textarea" rows="4"
+                  placeholder="Describe the resource, extraction method, purity grade…"></textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="seller_display_name">Your Display Name <span class="req">*</span></label>
+          <input type="text" id="seller_display_name" name="seller_display_name" class="form-input" required
+                 placeholder="e.g. Artemis Mining Co."/>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="resource_type_id">Resource Type <span class="req">*</span></label>
+          <select id="resource_type_id" name="resource_type_id" class="form-select" required>
+            <option value="">Select resource…</option>
+            {% for rt in resource_types %}
+            <option value="{{ rt.id }}">{{ rt.name }} ({{ rt.symbol or rt.name[:2].upper() }})</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Section: Contract Type ── -->
+    <div class="form-section">
+      <h2 class="form-section-title">Contract Type</h2>
+      <div class="kind-selector">
+        {% for kind in contract_kinds %}
+        <label class="kind-option">
+          <input type="radio" name="contract_kind" value="{{ kind.value }}"
+                 {% if kind.value == 'REGULAR' %}checked{% endif %}
+                 onchange="updateKindUI(this.value)"/>
+          <span class="kind-card">
+            <span class="kind-icon">
+              {% if kind.value == 'REGULAR' %}📄{% elif kind.value == 'OPTION' %}📊{% else %}⛓️{% endif %}
+            </span>
+            <span class="kind-name">{{ kind.value }}</span>
+            <span class="kind-desc">
+              {% if kind.value == 'REGULAR' %}Simple resource sale/purchase{% elif kind.value == 'OPTION' %}CALL/PUT option on a resource{% else %}On-chain smart contract metadata{% endif %}
+            </span>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- ── Section: Option Fields (shown when OPTION) ── -->
+    <div class="form-section" id="option-section" style="display:none">
+      <h2 class="form-section-title">Option Details</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Option Type</label>
+          <select name="option_type" class="form-select">
+            <option value="CALL">CALL — right to buy</option>
+            <option value="PUT">PUT — right to sell</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Strike Price</label>
+          <input type="number" name="strike_price" class="form-input" step="0.000001" min="0"
+                 placeholder="0.00"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Premium</label>
+          <input type="number" name="premium" class="form-input" step="0.000001" min="0"
+                 placeholder="0.00"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Expiration Date</label>
+          <input type="datetime-local" name="expiration_at" class="form-input"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Section: Smart Contract Fields (shown when SMART) ── -->
+    <div class="form-section" id="smart-section" style="display:none">
+      <h2 class="form-section-title">Smart Contract Metadata</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Blockchain / Chain</label>
+          <input type="text" name="chain" class="form-input"
+                 placeholder="e.g. Ethereum, Polygon, Solana"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Contract Address</label>
+          <input type="text" name="contract_address" class="form-input"
+                 placeholder="0x…"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Section: Quantity & Logistics ── -->
+    <div class="form-section">
+      <h2 class="form-section-title">Quantity &amp; Logistics</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="quantity">Quantity <span class="req">*</span></label>
+          <input type="number" id="quantity" name="quantity" class="form-input"
+                 step="0.000001" min="0.000001" required placeholder="500"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="unit">Unit <span class="req">*</span></label>
+          <select id="unit" name="unit" class="form-select">
+            {% for u in units %}
+            <option value="{{ u }}" {% if u == 'kg' %}selected{% endif %}>{{ u }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="delivery_location">Delivery Location</label>
+        <input type="text" id="delivery_location" name="delivery_location" class="form-input"
+               placeholder="e.g. Shackleton Crater, Luna / Low Earth Orbit / TBD"/>
+      </div>
+    </div>
+
+    <!-- ── Section: Pricing ── -->
+    <div class="form-section">
+      <h2 class="form-section-title">Pricing</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="price_amount">Price Amount <span class="req">*</span></label>
+          <input type="number" id="price_amount" name="price_amount" class="form-input"
+                 step="0.000001" min="0.000001" required placeholder="10000.00"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="pricing_currency">Currency</label>
+          <select id="pricing_currency" name="pricing_currency" class="form-select">
+            {% for c in currencies %}
+            <option value="{{ c }}">{{ c }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Section: Payment Methods ── -->
+    <div class="form-section">
+      <h2 class="form-section-title">Accepted Payment Method</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Method</label>
+          <select name="payment_method" class="form-select" id="payment-method-select"
+                  onchange="updatePaymentUI(this.value)">
+            <option value="">None specified</option>
+            <option value="STRIPE">💳 Stripe (Card Payment)</option>
+            <option value="CREDITS">🪙 Credits (Internal Ledger)</option>
+            <option value="CRYPTO_WALLET">🔐 Crypto Wallet Address</option>
+          </select>
+        </div>
+      </div>
+      <div id="wallet-section" style="display:none" class="form-group">
+        <label class="form-label">Wallet Address</label>
+        <input type="text" name="wallet_address" class="form-input"
+               placeholder="0x… or bc1… or your_wallet_address"/>
+      </div>
+      <div id="credits-section" style="display:none" class="form-group">
+        <label class="form-label">Credits Account Handle</label>
+        <input type="text" name="credits_handle" class="form-input"
+               placeholder="e.g. @artemis_mining"/>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <a href="/contracts" class="btn btn-ghost">Cancel</a>
+      <button type="submit" class="btn btn-primary btn-lg">🚀 List Contract</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateKindUI(kind) {
+  document.getElementById('option-section').style.display = kind === 'OPTION' ? 'block' : 'none';
+  document.getElementById('smart-section').style.display = kind === 'SMART' ? 'block' : 'none';
+}
+
+function updatePaymentUI(method) {
+  document.getElementById('wallet-section').style.display = method === 'CRYPTO_WALLET' ? 'block' : 'none';
+  document.getElementById('credits-section').style.display = method === 'CREDITS' ? 'block' : 'none';
+}
+
+// initialise
+updateKindUI(document.querySelector('input[name="contract_kind"]:checked')?.value || 'REGULAR');
+updatePaymentUI(document.getElementById('payment-method-select')?.value || '');
+</script>
+{% endblock %}
