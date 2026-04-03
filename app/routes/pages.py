@@ -291,7 +291,7 @@ def submit_offer(
     )
     db.add(offer)
     db.commit()
-    return RedirectResponse(url=f"/contracts/{contract_id}", status_code=303)
+    return RedirectResponse(url=f"/contracts/{int(contract_id)}", status_code=303)
 
 
 @router.post("/contracts/{contract_id}/accept-offer/{offer_id}")
@@ -315,7 +315,7 @@ def accept_offer_page(
     if contract:
         contract.status = ContractStatus.ACCEPTED
     db.commit()
-    return RedirectResponse(url=f"/contracts/{contract_id}", status_code=303)
+    return RedirectResponse(url=f"/contracts/{int(contract_id)}", status_code=303)
 
 
 @router.post("/contracts/{contract_id}/close")
@@ -325,7 +325,7 @@ def close_contract_page(contract_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Contract not found")
     contract.status = ContractStatus.CLOSED
     db.commit()
-    return RedirectResponse(url=f"/contracts/{contract_id}", status_code=303)
+    return RedirectResponse(url=f"/contracts/{int(contract_id)}", status_code=303)
 
 
 @router.post("/contracts/{contract_id}/cancel")
@@ -335,4 +335,4 @@ def cancel_contract_page(contract_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Contract not found")
     contract.status = ContractStatus.CANCELLED
     db.commit()
-    return RedirectResponse(url=f"/contracts/{contract_id}", status_code=303)
+    return RedirectResponse(url=f"/contracts/{int(contract_id)}", status_code=303)
