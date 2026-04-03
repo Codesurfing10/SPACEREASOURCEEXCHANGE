@@ -127,28 +127,45 @@ The tests use an isolated SQLite database (`test_space.db`) which is cleaned up 
 
 ## Deploying to Render
 
-### One-Click Deploy
+### One-Click Blueprint Deploy (Recommended)
 
-1. Fork this repository to your GitHub account
-2. Go to [Render Dashboard](https://dashboard.render.com/)
-3. Click **New → Blueprint**
-4. Connect your forked repository
-5. Render will read `render.yaml` and provision:
-   - A Python web service
-   - A managed PostgreSQL database (free tier)
+1. **Fork** this repository to your GitHub account.
+2. Go to [Render Dashboard](https://dashboard.render.com/) and sign in (or create a free account).
+3. Click **New → Blueprint**.
+4. Click **Connect a repository** and select your fork.
+5. Render reads `render.yaml` and automatically provisions:
+   - A **Python web service** (`space-resource-exchange`)
+   - A **managed PostgreSQL database** (`space-resource-exchange-db`, free tier)
+6. After the initial deploy completes, set the remaining environment variables under the web service **Environment** tab:
+   - `STRIPE_SECRET_KEY` — your Stripe secret key (e.g. `sk_test_...`)
+   - `STRIPE_PUBLISHABLE_KEY` — your Stripe publishable key (e.g. `pk_test_...`)
+   - `APP_BASE_URL` — the Render service URL (e.g. `https://space-resource-exchange.onrender.com`)
+7. Click **Save Changes** — Render will redeploy automatically.
+8. Open the service URL in your browser to view the UI.
 
-### Manual Deploy
+> **`DATABASE_URL` is wired automatically** from the Render database via `render.yaml`; you do not need to set it manually.
 
-1. **Create a PostgreSQL database** on Render (free tier available)
+### Manual Deploy (Step-by-Step)
+
+1. **Create a PostgreSQL database** on Render:
+   - Dashboard → **New → PostgreSQL** → choose *Free* plan → **Create Database**.
+   - Note the **Internal Database URL** shown on the database info page.
 2. **Create a Web Service**:
-   - Environment: Python
-   - Build Command: `pip install -r requirements.txt`
-   - Start Command: `alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-3. **Set environment variables** in the Render dashboard:
-   - `DATABASE_URL` (from the Render database "Internal Database URL")
-   - `STRIPE_SECRET_KEY` (from your Stripe dashboard)
-   - `STRIPE_PUBLISHABLE_KEY`
-   - `APP_BASE_URL` (your Render service URL, e.g. `https://space-resource-exchange.onrender.com`)
+   - Dashboard → **New → Web Service** → connect your repository.
+   - Set **Environment**: `Python 3`.
+   - Set **Build Command**: `pip install -r requirements.txt`
+   - Set **Start Command**: `alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+3. **Set environment variables** in the web service **Environment** tab:
+
+   | Key | Value |
+   |-----|-------|
+   | `DATABASE_URL` | Internal Database URL from step 1 |
+   | `STRIPE_SECRET_KEY` | `sk_test_...` or `sk_live_...` from Stripe Dashboard |
+   | `STRIPE_PUBLISHABLE_KEY` | `pk_test_...` or `pk_live_...` from Stripe Dashboard |
+   | `APP_BASE_URL` | Your Render service URL (e.g. `https://my-srx.onrender.com`) |
+   | `PYTHON_VERSION` | `3.11.0` |
+
+4. Click **Create Web Service**. Render builds the image, runs `alembic upgrade head`, then starts the server.
 
 ### Docker Deploy
 
@@ -158,6 +175,76 @@ docker run -p 8000:8000 \
   -e DATABASE_URL="sqlite:///./space_exchange.db" \
   space-resource-exchange
 ```
+
+## Viewing the UI
+
+Once the app is running (locally at `http://localhost:8000` or on Render), open your browser and navigate to the routes below.
+
+| Route | Description |
+|-------|-------------|
+| `/` | **Landing page** — space-themed hero, animated starfield, quick links |
+| `/contracts` | **Browse contracts** — filter by resource type, contract type, status; paginated list |
+| `/contracts/new` | **Create a contract** — form to post a new Regular, Option, or Smart contract |
+| `/contracts/{id}` | **Contract detail** — view terms, submit/accept/reject offers, add payment preferences |
+| `/docs` | **Interactive API docs** (Swagger UI) — explore and test all REST endpoints |
+| `/redoc` | **ReDoc API docs** — alternative REST API reference |
+
+### Quick Start on Render
+
+1. After deployment, Render shows your live URL in the service dashboard (e.g. `https://space-resource-exchange.onrender.com`).
+2. Click the URL — the space-themed landing page loads.
+3. Go to `/contracts` to see the contract list (empty on first deploy — create one at `/contracts/new`).
+4. Fill in the **Create Contract** form and submit — your contract appears in the list.
+5. Open the contract detail page, submit an offer, then accept it to walk through the full flow.
+
+## Troubleshooting (Render)
+
+### ❌ Deploy fails — "connection refused" or database errors
+
+**Cause**: The web service started before the database was ready, or `DATABASE_URL` is not set.
+
+**Fix**:
+1. In the Render dashboard, go to your web service → **Environment**.
+2. Confirm `DATABASE_URL` is present. If you used the Blueprint deploy it is auto-wired; if not, paste the **Internal Database URL** from the Render PostgreSQL instance.
+3. Re-deploy (Manual Deploy → **Deploy latest commit**).
+
+### ❌ `Table does not exist` / 500 errors after deploy
+
+**Cause**: Alembic migrations did not run.
+
+**Fix**:
+1. Check the web service **Logs** — look for `alembic upgrade head` output near startup.
+2. If you see an Alembic error, verify that `DATABASE_URL` points to the correct database.
+3. Alternatively, open a Render **Shell** for the service and run:
+   ```bash
+   alembic upgrade head
+   ```
+4. Restart the service.
+
+### ❌ Static files not loading (CSS/JS missing, unstyled page)
+
+**Cause**: Render may serve from a different working directory, or the `app/static` path is wrong.
+
+**Fix**:
+1. Ensure the start command is run from the repository root (the default for Render web services).
+2. Confirm `app/static/css/main.css` and `app/static/js/main.js` exist in the repo.
+3. Check the service logs for `StaticFiles` mount errors.
+4. Hard-refresh the browser (`Ctrl+Shift+R` / `Cmd+Shift+R`) to clear cached assets.
+
+### ❌ Render free-tier web service is slow to respond
+
+**Cause**: Free-tier services spin down after 15 minutes of inactivity and take ~30 s to cold-start.
+
+**Fix**: Visit the site URL — after the cold-start delay it will respond normally. Upgrade to a paid plan or use an external pinger service to keep it warm.
+
+### ❌ Stripe payment errors (`No such price` / redirect loop)
+
+**Cause**: `STRIPE_SECRET_KEY` or `STRIPE_PUBLISHABLE_KEY` is missing or set to the wrong key type.
+
+**Fix**:
+1. In the Render **Environment** tab, confirm both keys are set.
+2. Use *test* keys (`sk_test_...` / `pk_test_...`) during development.
+3. Set `APP_BASE_URL` to your Render service URL so Stripe can redirect back correctly.
 
 ## Contract Flow
 
