@@ -1,13 +1,12 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.database import Base, engine, SessionLocal
 from app.routes import contracts, offers, pages, payments
-
-# Create tables (for SQLite dev; Alembic handles Postgres in production)
-Base.metadata.create_all(bind=engine)
 
 
 def _seed_resource_types() -> None:
@@ -60,12 +59,19 @@ def _seed_resource_types() -> None:
         db.close()
 
 
-_seed_resource_types()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Create tables for SQLite dev; Alembic handles Postgres in production
+    Base.metadata.create_all(bind=engine)
+    _seed_resource_types()
+    yield
+
 
 app = FastAPI(
     title="Space Resource Exchange",
     description="MVP contract exchange platform for space resources",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
